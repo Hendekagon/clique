@@ -21,6 +21,9 @@ and to filter out namespaces beginning with certain strings:
 
 for example, would exclude anything in the clojure namespace from the graph
 
+- this generates a graphviz file called deps.dot which you can run through Gephi or
+something to make it look nice.
+
 ## License
 
 Copyright © 2013 Matthew Chadwick
