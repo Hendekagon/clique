@@ -4,9 +4,17 @@ A Leiningen plugin for generating function dependency graphs.
 
 ## Usage
 
-Put `[lein-clique "0.1.0-SNAPSHOT"]` into the `:plugins` vector of your
+Put `[lein-clique "0.1.0"]` into the `:plugins` vector of your
 `:user` profile, or if you are on Leiningen 1.x do `lein plugin install
-lein-clique 0.1.0-SNAPSHOT`.
+lein-clique 0.1.0`.
+
+
+lein-clique goes through your source code to find which functions external to a function's
+namespace it depends on, then generates a graphviz graph of those dependencies.
+If you analyze the graph, you can find for example which functions are most used
+by other functions (in-degree - in the Clojure core namespace these are: concat, seq and list),
+or which functions are most dependent on other functions.
+
 
 
 Example:
