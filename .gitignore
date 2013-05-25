@@ -9,6 +9,8 @@ pom.xml
 *.class
 *.iml
 *.asc
+*.*.asc
+.gitignore
 .lein-deps-sum
 .lein-failures
 .lein-plugins
