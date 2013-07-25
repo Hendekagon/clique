@@ -1,6 +1,5 @@
 (ns clique.core
   (:use
-    clojure.tools.logging
     clojure.stacktrace
     clojure.java.io
     clojure.tools.namespace.find
