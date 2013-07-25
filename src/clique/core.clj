@@ -3,8 +3,7 @@
     clojure.stacktrace
     clojure.java.io
     clojure.tools.namespace.find
-    ;clj-ns-browser.sdoc
-    )
+  )
   (:require
     [clojure.zip :as zip]
     [clojure.repl :as repl]
@@ -124,7 +123,7 @@ and their dependent functions
   ([g deps]
     (reduce (fn [g [s d]] (leg/add-edge g (keyword (str (name s) "-" (name d))) s d))
       (reduce (fn [g n] (leg/add-node g n (name n))) g (nodes deps)) (edges deps)))
-  )
+)
 
 (defn export-graph*
   ([ns]
@@ -139,6 +138,6 @@ and their dependent functions
         )
       (lll/layout :naive) (leg/build)
       (lgv/export output-name :indent "yes")
-      )
     )
   )
+)
