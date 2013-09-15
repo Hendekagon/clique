@@ -1,6 +1,6 @@
-(defproject lein-clique "0.1.0"
+(defproject lein-clique "0.1.1"
   :description "Make dependency graphs of Clojure functions"
-  :url "http://example.com/FIXME"
+  :url "https://github.com/Hendekagon/lein-clique"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :eval-in-leiningen true
@@ -12,7 +12,6 @@
     [org.clojure/data.zip "0.1.1"]
     [org.clojure/tools.namespace "0.2.0"]
     [clj-ns-browser "1.3.1"]
-    [hiccup "1.0.0-beta1"]
     [lacij "0.8.0"]
   ]
 )

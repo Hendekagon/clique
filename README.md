@@ -4,9 +4,9 @@ A Leiningen plugin for generating function dependency graphs.
 
 ## Usage
 
-Put `[lein-clique "0.1.0"]` into the `:plugins` vector of your
+Put `[lein-clique "0.1.1"]` into the `:plugins` vector of your
 `:user` profile, or if you are on Leiningen 1.x do `lein plugin install
-lein-clique 0.1.0`.
+lein-clique 0.1.1`.
 
 
 lein-clique goes through your source code to find which functions external to a function's

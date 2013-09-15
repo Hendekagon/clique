@@ -100,7 +100,7 @@ and their dependent functions
 
 (defn export-graphviz
   ([nodes edges name]
-    (println "Creating dependencyyy graph " (str name ".dot") ", " (count nodes) " nodes "(count edges) " edges")
+    (println "Creating dependency graph " (str name ".dot") ", " (count nodes) " nodes "(count edges) " edges")
     (spit (str name ".dot")
       (apply str
         (concat [(str "digraph " name " {")]
