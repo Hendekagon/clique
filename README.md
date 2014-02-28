@@ -4,7 +4,7 @@ A Leiningen plugin for generating function dependency graphs.
 
 ## Usage
 
-Put `[lein-clique "0.1.1"]` into the `:plugins` vector
+Put `[lein-clique "0.1.2"]` into the `:plugins` vector
 of your [profile](https://github.com/technomancy/leiningen/blob/stable/doc/PROFILES.md)
 
 
