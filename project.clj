@@ -4,6 +4,7 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :eval-in-leiningen true
+  :signing {:gpg-key "F5DE1E30"}
   :source-paths ["./src"]
   :dependencies
   [

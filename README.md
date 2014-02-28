@@ -35,17 +35,17 @@ through a graph visualization tool like Gephi to make it look nice.
 
 Using Clique without leiningen:
 
-You can also just use Clique as a library by adding `[lein-clique "0.1.1"]` to your project.clj's :dependencies vector, then:
+You can also just use Clique as a library by adding `[lein-clique "0.1.2"]` to your project.clj's :dependencies vector, then:
 
 	=> (require '[clique.core :as c])
 	=> (c/all-deps "./src")
 
-will return a map of all functions in namespaces in you source path to the functions they depend on
+will return a map of all functions in namespaces in your source path to the functions they depend on
 (including duplicates, in case you want to know frequencies)
 
 	=> (pprint (sort-by val (frequencies (mapcat val (c/all-deps "./src")))))
 
-To get such a map for a particular namespace do:
+to get such a map for a particular namespace do:
 
 	=> (c/all-fq (c/dependencies 'your.namespace))
 
