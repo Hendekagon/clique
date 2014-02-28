@@ -20,7 +20,8 @@
     (try
       ((fn [] (require ns) (filter :arglists (map meta (vals (ns-publics ns))))))
       (catch Exception e
-        ((fn [] (println "Problem requiring " ns " > " e) (print-cause-trace e) []))))
+        nil
+        ))
   )
 )
 
@@ -77,8 +78,18 @@
   (reduce
     (fn [r [f sc]]
       (assoc r f
-       (except (map (partial fqns (symbol (namespace f))) (filter (comp identity namespace) sc)) exclude)
-        )
+       (except (map (partial fqns (symbol (namespace f))) (filter (comp identity namespace) sc)) exclude))
+    )
+    {}
+  ds)
+)
+
+(defn all-fq
+  "Filter out symbols in exclude"
+  [ds]
+  (reduce
+    (fn [r [f sc]]
+      (assoc r f (map (partial fqns (symbol (namespace f))) sc))
     )
     {}
   ds)
@@ -92,6 +103,14 @@ and their dependent functions
 "
   [dir exclude]
   (filtered (mapcat dependencies (find-namespaces-in-dir (file dir))) exclude)
+)
+
+(defn all-deps
+"Returns a list of all functions found in all namespaces under the given path dir
+and their dependent functions
+"
+  [dir]
+  (all-fq (mapcat dependencies (find-namespaces-in-dir (file dir))))
 )
 
 (defn nodes [deps] (set (mapcat cons (keys deps) (vals deps))))

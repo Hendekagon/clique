@@ -4,9 +4,8 @@ A Leiningen plugin for generating function dependency graphs.
 
 ## Usage
 
-Put `[lein-clique "0.1.1"]` into the `:plugins` vector of your
-`:user` profile, or if you are on Leiningen 1.x do `lein plugin install
-lein-clique 0.1.1`.
+Put `[lein-clique "0.1.1"]` into the `:plugins` vector
+of your [profile](https://github.com/technomancy/leiningen/blob/stable/doc/PROFILES.md)
 
 
 lein-clique goes through your source code to find which functions external to a function's
@@ -16,20 +15,39 @@ by other functions (in-degree - in the Clojure core namespace these are: concat,
 or which functions are most dependent on other functions.
 
 
-
 Example:
 
 cd into your project and:
 
     $ lein clique
 
-and to filter out namespaces beginning with certain strings:
+by default, namespaces starting with 'clojure' are excluded
+so if you want to *include* clojure's namespaces do:
 
-    $ lein clique [\"clojure\"]
+	$ lein clique []
 
-for example, would exclude anything in the clojure namespace from the graph,
-this generates a graphviz file called deps.dot which you can run through Gephi or
-something to make it look nice.
+or to filter out namespaces beginning with certain strings:
+
+    $ lein clique [\"somenamespace\" \"anothernamespace\"]
+
+A graphviz file called deps.dot is then generated, which you can run
+through a graph visualization tool like Gephi to make it look nice.
+
+Using Clique without leiningen:
+
+You can also just use Clique as a library by adding `[lein-clique "0.1.1"]` to your project.clj's :dependencies vector, then:
+
+	=> (require '[clique.core :as c])
+	=> (c/all-deps "./src")
+
+will return a map of all functions in namespaces in you source path to the functions they depend on
+(including duplicates, in case you want to know frequencies)
+
+	=> (pprint (sort-by val (frequencies (mapcat val (c/all-deps "./src")))))
+
+To get such a map for a particular namespace do:
+
+	=> (c/all-fq (c/dependencies 'your.namespace))
 
 ## License
 
