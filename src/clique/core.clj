@@ -1,36 +1,29 @@
 (ns clique.core
-  (:use
-    clojure.stacktrace
-    clojure.java.io
-    clojure.tools.namespace.find
-  )
   (:require
+    [clojure.stacktrace :as st :refer :all]
+    [clojure.java.io :as io :refer :all]
+    [clojure.tools.namespace.find :as nsf :refer :all]
     [clojure.zip :as zip]
     [clojure.repl :as repl]
     [lacij.edit.graph :as leg]
     [lacij.view.graphview :as lgv]
     [lacij.layouts.core :as llc]
-    [lacij.layouts.layout :as lll]
-  )
-)
+    [lacij.layouts.layout :as lll]))
+
 
 (defn functions
-"Returns all the functions in the namespace ns"
+  "Returns all the functions in the namespace ns"
   ([ns] ;(println "require " y)
     (try
       ((fn [] (require ns) (filter :arglists (map meta (vals (ns-publics ns))))))
       (catch Exception e
-        nil
-        ))
-  )
-)
+        nil))))
 
 (defn fqns
   "Returns the fully qualified namespace of the given symbol s in namespace ns"
   ([ns s]
-    (if-let [rns (-> (ns-resolve ns s) meta :ns)] (symbol (str rns) (name s)) s)
-  )
-)
+    (if-let [rns (-> (ns-resolve ns s) meta :ns)]
+      (symbol (str rns) (name s)) s)))
 
 (defn seq-map-zip [x]
   (zip/zipper
@@ -59,18 +52,14 @@
           (filter (comp identity second)
             (map vector
               (map :name functions)
-              (map (comp repl/source-fn symbol (partial str namespace \/) :name) functions)))))
-    )
-  )
-)
+              (map (comp repl/source-fn symbol (partial str namespace \/) :name) functions))))))))
 
 (defn except
   "Filter out symbols not in exclude"
   [sc exclude]
   (filter (comp
             (fn [^String ns]  (not-any? (fn [^String s] (.startsWith ns s)) exclude))
-            namespace) sc)
-)
+            namespace) sc))
 
 (defn filtered
   "Filter out symbols in exclude"
@@ -78,40 +67,32 @@
   (reduce
     (fn [r [f sc]]
       (assoc r f
-       (except (map (partial fqns (symbol (namespace f))) (filter (comp identity namespace) sc)) exclude))
-    )
+       (except (map (partial fqns (symbol (namespace f))) (filter (comp identity namespace) sc)) exclude)))
     {}
-  ds)
-)
+  ds))
 
 (defn all-fq
   "Filter out symbols in exclude"
   [ds]
   (reduce
     (fn [r [f sc]]
-      (assoc r f (map (partial fqns (symbol (namespace f))) sc))
-    )
+      (assoc r f (map (partial fqns (symbol (namespace f))) sc)))
     {}
-  ds)
-)
+    ds))
 
 (defn default-exclude [] ["clojure" "java" "System"])
 
 (defn project-dependencies
-"Returns a list of all functions found in all namespaces under the given path dir
-and their dependent functions
-"
+  "Returns a list of all functions found in all namespaces under the given path dir
+  and their dependent functions"
   [dir exclude]
-  (filtered (mapcat dependencies (find-namespaces-in-dir (file dir))) exclude)
-)
+  (filtered (mapcat dependencies (find-namespaces-in-dir (file dir))) exclude))
 
 (defn all-deps
-"Returns a list of all functions found in all namespaces under the given path dir
-and their dependent functions
-"
+  "Returns a list of all functions found in all namespaces under the given path dir
+  and their dependent functions"
   [dir]
-  (all-fq (mapcat dependencies (find-namespaces-in-dir (file dir))))
-)
+  (all-fq (mapcat dependencies (find-namespaces-in-dir (file dir)))))
 
 (defn nodes [deps] (set (mapcat cons (keys deps) (vals deps))))
 
@@ -125,38 +106,36 @@ and their dependent functions
         (concat [(str "digraph " name " {")]
           (map (fn [[s d]] (str "\"" (str s) "\"" " -> " "\"" (str d) "\"" ";\n")) edges)
           (map (fn [n] (str "\"" (str n) "\"" "[label=\"" (str n) "\"];\n")) nodes)
-          ["}"])
-        )
-      )
-    )
+          ["}"]))))
   ([dir] (export-graphviz dir (default-exclude)))
   ([dir exclude]
     (println "Excluding " exclude)
     ((fn [ds]
       (export-graphviz (nodes ds) (edges ds) (str  "deps")))
-      (project-dependencies dir exclude)))
-)
+      (project-dependencies dir exclude))))
 
 (defn graph
   ([deps] (graph (-> (leg/graph :width 512 :height 512) (leg/add-default-node-attrs :width 25 :height 25 :shape :circle)) deps))
   ([g deps]
-    (reduce (fn [g [s d]] (leg/add-edge g (keyword (str (name s) "-" (name d))) s d))
-      (reduce (fn [g n] (leg/add-node g n (name n))) g (nodes deps)) (edges deps)))
-)
+    (reduce
+      (fn [g [s d]]
+        (leg/add-edge g (keyword (str (name s) "-" (name d))) s d))
+      (reduce (fn [g n] (leg/add-node g n (name n))) g (nodes deps))
+      (edges deps))))
 
 (defn export-graph*
   ([ns]
-    (-> (graph (dependencies ns)) (lll/layout :naive) (leg/build) (lgv/export (str "./" ns ".svg") :indent "yes"))
-    )
+    (-> (graph (dependencies ns))
+        (lll/layout :naive)
+        (leg/build)
+        (lgv/export (str "./" ns ".svg") :indent "yes")))
   ([path output-name]
     (->
       (reduce
         graph
-        (-> (leg/graph :width 1024 :height 1024) (leg/add-default-node-attrs :width 25 :height 25 :shape :circle))
-        (map dependencies (find-namespaces-in-dir (file path)))
-        )
+        (-> (leg/graph :width 1024 :height 1024)
+            (leg/add-default-node-attrs :width 25 :height 25 :shape :circle))
+        (map dependencies (find-namespaces-in-dir (file path))))
       (lll/layout :naive) (leg/build)
-      (lgv/export output-name :indent "yes")
-    )
-  )
-)
+      (lgv/export output-name :indent "yes"))))
+
