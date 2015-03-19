@@ -12,18 +12,23 @@
 
 
 (defn functions
-  "Returns all the functions in the namespace ns"
-  ([ns] ;(println "require " y)
-    (try
-      ((fn [] (require ns) (filter :arglists (map meta (vals (ns-publics ns))))))
-      (catch Exception e
-        nil))))
+  "Returns all the functions or macros in the namespace ns"
+  [ns]
+  (try
+    ; XXX Wonder if we could use a static analyzer for this? Probably more trouble than worth.
+    (require ns)
+    (->> (ns-publics ns)
+         (vals)
+         (map meta)
+         (filter :arglists))
+    (catch Exception e
+      nil)))
 
 (defn fqns
   "Returns the fully qualified namespace of the given symbol s in namespace ns"
-  ([ns s]
-    (if-let [rns (-> (ns-resolve ns s) meta :ns)]
-      (symbol (str rns) (name s)) s)))
+  [ns s]
+  (if-let [rns (-> (ns-resolve ns s) meta :ns)]
+    (symbol (str rns) (name s)) s))
 
 (defn seq-map-zip [x]
   (zip/zipper
@@ -32,53 +37,100 @@
     (fn [node children] (with-meta children (meta node)))
     x))
 
-(defn zip-nodes [x] (take-while (complement zip/end?) (iterate zip/next (seq-map-zip x))))
+(defn zip-nodes [x]
+  (take-while
+    (complement zip/end?)
+    (iterate zip/next (seq-map-zip x))))
 
-(defn symbols [x] (filter symbol? (map zip/node (zip-nodes x)))) ; also returns Java classes
+(defn symbols
+  "Returns symbols and Java classes from source"
+  [x]
+  (->> (zip-nodes x)
+       (map zip/node)
+       (filter symbol?)))
 
-(defn namespaced-symbols [expression] (filter namespace (symbols expression)))
+(defn namespaced-symbols
+  [expression]
+  "Returns symbols which have namespaces"
+  (filter namespace (symbols expression)))
 
 (defn dependencies
-  "returns all functions used by each function in the given namespace"
+  "Returns all functions used by each function in the given namespace"
   ([namespace]
   (dependencies namespace (functions namespace)))
   ([namespace functions]
-    (into
-      {}
-      (filter (comp not-empty second)
-        (map
-          (fn [[fn-name source]]
-            [(symbol (str namespace) (str fn-name)) (symbols (read-string source))])
-          (filter (comp identity second)
-            (map vector
-              (map :name functions)
-              (map (comp repl/source-fn symbol (partial str namespace \/) :name) functions))))))))
+   (->> functions
+        (map (comp repl/source-fn symbol (partial str namespace \/) :name))
+        (map vector (map :name functions))
+        (filter second)
+        (map (fn [[fn-name source]]
+               [(symbol (str namespace) (str fn-name))
+                (map 
+                  (partial fqns namespace)
+                  (symbols (read-string source)))]))
+        ; XXX Hmm... do we really want this for a complete graph? Empty nodes should be fine
+        (filter (comp not-empty second))
+        (into {}))))
 
-(defn except
-  "Filter out symbols not in exclude"
-  [sc exclude]
-  (filter (comp
-            (fn [^String ns]  (not-any? (fn [^String s] (.startsWith ns s)) exclude))
-            namespace) sc))
+(dependencies 'clojure.tools.cli)
 
-(defn filtered
-  "Filter out symbols in exclude"
-  [ds exclude]
+;; XXX The following 4 functions REALLY need to be refactored
+
+(defn ns-remove
+  "Filters out fully qualified function/macro names with namespace in exclude"
+  ; XXX Should switch the order here, since fq-fnames is really the collection of interest
+  [fq-fnames exclude]
+  (filter
+    (comp
+      (fn [ns]
+        (not-any? #(.startsWith (str ns) %) (map str exclude)))
+      namespace)
+    fq-fnames))
+
+(defn ns-filter
+  "Filters fully qualified function/macro names to only those given in include"
+  ; XXX Should switch the order here, since fq-fnames is really the collection of interest
+  [fq-fnames include]
+  (filter
+    (comp
+      (fn [ns]
+        (some #(.startsWith (str ns) %) (map str include)))
+      namespace)
+    fq-fnames))
+
+(defn deps-ns-remove
+  "Remove functions from dependencies which are in the given exclude namespaces"
+  [deps exclude]
   (reduce
     (fn [r [f sc]]
       (assoc r f
-       (except (map (partial fqns (symbol (namespace f))) (filter (comp identity namespace) sc)) exclude)))
+       (ns-remove
+         (map (partial fqns (symbol (namespace f))) (filter (comp identity namespace) sc))
+         exclude)))
     {}
-  ds))
+    deps))
+
+(defn deps-ns-filter
+  "Remove functions from dependencies which are in the given exclude namespaces"
+  [deps include]
+  ; XXX Should check here that include is a collection and make it so if not
+  (reduce
+    (fn [r [f sc]]
+      (assoc r f
+       (ns-filter
+         (map (partial fqns (symbol (namespace f))) (filter (comp identity namespace) sc))
+         include)))
+    {}
+    deps))
 
 (defn all-fq
   "Filter out symbols in exclude"
-  [ds]
+  [deps]
   (reduce
     (fn [r [f sc]]
       (assoc r f (map (partial fqns (symbol (namespace f))) sc)))
     {}
-    ds))
+    deps))
 
 (defn default-exclude [] ["clojure" "java" "System"])
 
@@ -86,7 +138,7 @@
   "Returns a list of all functions found in all namespaces under the given path dir
   and their dependent functions"
   [dir exclude]
-  (filtered (mapcat dependencies (find-namespaces-in-dir (file dir))) exclude))
+  (deps-ns-remove (mapcat dependencies (find-namespaces-in-dir (file dir))) exclude))
 
 (defn all-deps
   "Returns a list of all functions found in all namespaces under the given path dir
@@ -99,6 +151,7 @@
 (defn edges [deps] (set (mapcat (fn [k v] (map vector (repeat k) v)) (keys deps) (vals deps))))
 
 (defn export-graphviz
+  ; All filtering should happen before this; poor separation of concerns
   ([nodes edges name]
     (println "Creating dependency graph " (str name ".dot") ", " (count nodes) " nodes "(count edges) " edges")
     (spit (str name ".dot")
@@ -113,6 +166,11 @@
     ((fn [ds]
       (export-graphviz (nodes ds) (edges ds) (str  "deps")))
       (project-dependencies dir exclude))))
+
+;; This can now be used like this:
+;;     (-> (dependencies 'clojure.tools.cli)
+;;         (deps-ns-filter ['clojure.tools.cli\/])
+;;         ((fn [ds] (export-graphviz (nodes ds) (edges ds) "tools.cli"))))
 
 (defn graph
   ([deps] (graph (-> (leg/graph :width 512 :height 512) (leg/add-default-node-attrs :width 25 :height 25 :shape :circle)) deps))
