@@ -1,4 +1,5 @@
 (ns clique.core
+  "# Clique: function dependency graph visualizations and analysis"
   (:require
     [clojure.stacktrace :as st :refer :all]
     [clojure.java.io :as io :refer :all]
@@ -11,7 +12,13 @@
     [lacij.layouts.layout :as lll]))
 
 
-(defn functions
+
+;; ## Base functions for building a dependency graph given a namespace"
+;;
+;; First we need to get all the functions from a namespace:
+
+
+(defn ns-functions
   "Returns all the functions or macros in the namespace ns"
   [ns]
   (try
@@ -30,51 +37,52 @@
   (if-let [rns (-> (ns-resolve ns s) meta :ns)]
     (symbol (str rns) (name s)) s))
 
-(defn seq-map-zip [x]
+(defn seq-map-zip [sexp]
   (zip/zipper
     (fn [n] (or (seq? n) (map? n) (vector? n)))
     (fn [b] (if (map? b) (seq b) b))
     (fn [node children] (with-meta children (meta node)))
-    x))
+    sexp))
 
-(defn zip-nodes [x]
-  (take-while
-    (complement zip/end?)
-    (iterate zip/next (seq-map-zip x))))
-
-(defn symbols
+(defn sexp-symbols
   "Returns symbols and Java classes from source"
-  [x]
-  (->> (zip-nodes x)
+  [sexp]
+  (->> (seq-map-zip sexp)
+       (iterate zip/next)
+       (take-while (complement zip/end?))
        (map zip/node)
        (filter symbol?)))
 
 (defn namespaced-symbols
   [expression]
   "Returns symbols which have namespaces"
-  (filter namespace (symbols expression)))
+  (filter namespace (sexp-symbols expression)))
 
 (defn dependencies
-  "Returns all functions used by each function in the given namespace"
+  "Returns a map of all functions in the given namespace, used by each function in the given namespace"
   ([namespace]
-  (dependencies namespace (functions namespace)))
+  (dependencies namespace (ns-functions namespace)))
   ([namespace functions]
    (->> functions
         (map (comp repl/source-fn symbol (partial str namespace \/) :name))
         (map vector (map :name functions))
         (filter second)
-        (map (fn [[fn-name source]]
+        (map (fn [[fn-name sexp]]
                [(symbol (str namespace) (str fn-name))
                 (map 
                   (partial fqns namespace)
-                  (symbols (read-string source)))]))
+                  (sexp-symbols (read-string sexp)))]))
         ; XXX Hmm... do we really want this for a complete graph? Empty nodes should be fine
         (filter (comp not-empty second))
         (into {}))))
 
-(dependencies 'clojure.tools.cli)
 
-;; XXX The following 4 functions REALLY need to be refactored
+;; ## Filtering functions
+;;
+;; Here we have functions for filtering our dependency graphs by namespace.
+
+;: XXX The following 4 functions REALLY need to be refactored
+
 
 (defn ns-remove
   "Filters out fully qualified function/macro names with namespace in exclude"
@@ -157,8 +165,8 @@
     (spit (str name ".dot")
       (apply str
         (concat [(str "digraph " name " {")]
-          (map (fn [[s d]] (str "\"" (str s) "\"" " -> " "\"" (str d) "\"" ";\n")) edges)
-          (map (fn [n] (str "\"" (str n) "\"" "[label=\"" (str n) "\"];\n")) nodes)
+          (map (fn [[s d]] (str \" s "\" -> \"" d "\";\n")) edges)
+          (map (fn [n] (str \" n "\" [label=\"" n "\"];\n")) nodes)
           ["}"]))))
   ([dir] (export-graphviz dir (default-exclude)))
   ([dir exclude]
@@ -172,8 +180,8 @@
 ;;         (deps-ns-filter ['clojure.tools.cli\/])
 ;;         ((fn [ds] (export-graphviz (nodes ds) (edges ds) "tools.cli"))))
 
-(defn graph
-  ([deps] (graph (-> (leg/graph :width 512 :height 512) (leg/add-default-node-attrs :width 25 :height 25 :shape :circle)) deps))
+(defn lacij-graph
+  ([deps] (lacij-graph (-> (leg/graph :width 512 :height 512) (leg/add-default-node-attrs :width 25 :height 25 :shape :circle)) deps))
   ([g deps]
     (reduce
       (fn [g [s d]]
@@ -183,14 +191,14 @@
 
 (defn export-graph*
   ([ns]
-    (-> (graph (dependencies ns))
+    (-> (lacij-graph (dependencies ns))
         (lll/layout :naive)
         (leg/build)
         (lgv/export (str "./" ns ".svg") :indent "yes")))
   ([path output-name]
     (->
       (reduce
-        graph
+        lacij-graph
         (-> (leg/graph :width 1024 :height 1024)
             (leg/add-default-node-attrs :width 25 :height 25 :shape :circle))
         (map dependencies (find-namespaces-in-dir (file path))))
