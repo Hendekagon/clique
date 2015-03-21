@@ -1,6 +1,7 @@
 (ns clique.core
   "# Clique: function dependency graph visualizations and analysis"
   (:require
+    [clique.impl.core :as impl :refer :all]
     [clojure.stacktrace :as st :refer :all]
     [clojure.java.io :as io :refer :all]
     [clojure.tools.namespace.find :as nsf :refer :all]
@@ -17,9 +18,20 @@
 ;;
 ;; First we need to get all the functions from a namespace:
 
+(defn fqns
+  "Returns the fully qualified namespace of the given symbol s in namespace ns."
+  [ns s]
+  (if-let [rns (-> (ns-resolve ns s) meta :ns)]
+    (symbol (str rns) (name s))
+    s))
+
+(defn assoc-fqns
+  "Assoc the fully qualified function names into a function meta map."
+  [fmeta]
+  (assoc fmeta :fq-name (fqns (:ns fmeta) (:name fmeta))))
 
 (defn ns-functions
-  "Returns all the functions or macros in the namespace ns"
+  "Returns all the functions or macros in the namespace ns."
   [ns]
   (try
     ; XXX Wonder if we could use a static analyzer for this? Probably more trouble than worth.
@@ -27,36 +39,41 @@
     (->> (ns-publics ns)
          (vals)
          (map meta)
-         (filter :arglists))
+         (filter :arglists)
+         (map assoc-fqns))
     (catch Exception e
       nil)))
 
-(defn fqns
-  "Returns the fully qualified namespace of the given symbol s in namespace ns"
-  [ns s]
-  (if-let [rns (-> (ns-resolve ns s) meta :ns)]
-    (symbol (str rns) (name s)) s))
+(defn fn-dependencies
+  "Takes function metadata and computes a loom dependency graph based on the function source."
+  [{:keys [ns name] :as fn-meta}]
+  (->> (fn-source fn-meta)
+       (read-string)
+       (sexp-symbols)
+       (map
+         (fn [sym]
+           (let [fq-name (fqns ns sym)]
+             (-> fq-name resolve meta (assoc :fq-name fq-name)))))))
 
-(defn seq-map-zip [sexp]
-  (zip/zipper
-    (fn [n] (or (seq? n) (map? n) (vector? n)))
-    (fn [b] (if (map? b) (seq b) b))
-    (fn [node children] (with-meta children (meta node)))
-    sexp))
+(defn fn-dep-graph
+  [fn-meta]
+  (let [fn-deps (fn-dependencies fn-meta)
+        graph   (->> (map :fq-name fn-deps)
+                     (map vector (repeat (:fq-name fn-meta)))
+                     (apply g/digraph))]
+    ; For each function metadata map,
+    (reduce
+      (fn [g fmeta]
+        ; And for each key/value pair in that map,
+        (reduce
+          (fn [g [k v]]
+            ; Add that attribuate to the node
+            (gattr/add-attr g (:fq-name fmeta) k v))
+          g
+          fmeta))
+      graph
+      (conj fn-deps fn-meta))))
 
-(defn sexp-symbols
-  "Returns symbols and Java classes from source"
-  [sexp]
-  (->> (seq-map-zip sexp)
-       (iterate zip/next)
-       (take-while (complement zip/end?))
-       (map zip/node)
-       (filter symbol?)))
-
-(defn namespaced-symbols
-  [expression]
-  "Returns symbols which have namespaces"
-  (filter namespace (sexp-symbols expression)))
 
 (defn dependencies
   "Returns a map of all functions in the given namespace, used by each function in the given namespace"
