@@ -75,23 +75,11 @@
       (conj fn-deps fn-meta))))
 
 
-(defn dependencies
-  "Returns a map of all functions in the given namespace, used by each function in the given namespace"
-  ([namespace]
-  (dependencies namespace (ns-functions namespace)))
-  ([namespace functions]
-   (->> functions
-        (map (comp repl/source-fn symbol (partial str namespace \/) :name))
-        (map vector (map :name functions))
-        (filter second)
-        (map (fn [[fn-name sexp]]
-               [(symbol (str namespace) (str fn-name))
-                (map 
-                  (partial fqns namespace)
-                  (sexp-symbols (read-string sexp)))]))
-        ; XXX Hmm... do we really want this for a complete graph? Empty nodes should be fine
-        (filter (comp not-empty second))
-        (into {}))))
+(defn ns-dependencies
+  [ns]
+  (->> (ns-functions ns)
+       (map fn-dep-graph)
+       (reduce g/digraph)))
 
 
 ;; ## Filtering functions
