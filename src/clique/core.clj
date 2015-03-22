@@ -125,12 +125,12 @@
 (defn ns-restrict
   "Restrict a dependency graph to the specified namespaces. There are 4 kw-args:
 
-  * `:include` - collection of namespace objects, symbols or strings; any function with namespace
+  * `:include` - namespace object, symbol, string or collection thereof; any function with namespace
     not in this list will be removed.
-  * `:exclude` - collection of namespace objects, symbols or strings; any function with namespace
+  * `:exclude` - namespace object, symbol, string or collection thereof; any function with namespace
     in this list will be removed.
-  * `:include-re`, `:exclude-re` - like `:include` and `:exclude`; can be either a single regex or
-    regex string, or can be a collection of such.
+  * `:include-re`, `:exclude-re` - regex, regex string, or collection thereof; behave analogous to
+    `:include` and `:exclude`.
 
   If there are namespaces matching both an inclusion and an exclusion, those namepsaces will be
   removed."
