@@ -108,71 +108,74 @@
        (map fn-dep-graph)
        (apply add-digraphs)))
 
-
 ;; ## Filtering functions
 ;;
 ;; Here we have functions for filtering our dependency graphs by namespace.
 
-;: XXX The following 4 functions REALLY need to be refactored
+(defn g-attribute-filter
+  "Return a new graph which contains nodes in graph for which keep-fn is truthy with respect
+  to the given attribute"
+  [graph attr keep-fn]
+  (->> (g/nodes graph)
+       ; We remove the things we are going to keep, because what's left is what gets passed to remove-nodes
+       (remove
+         #(keep-fn (gattr/attr graph % attr)))
+       (apply g/remove-nodes graph)))
 
+(defn ns-restrict
+  "Restrict a dependency graph to the specified namespaces. There are 4 kw-args:
 
-(defn ns-remove
-  "Filters out fully qualified function/macro names with namespace in exclude"
-  ; XXX Should switch the order here, since fq-fnames is really the collection of interest
-  [fq-fnames exclude]
-  (filter
-    (comp
-      (fn [ns]
-        (not-any? #(.startsWith (str ns) %) (map str exclude)))
-      namespace)
-    fq-fnames))
+  * `:include` - collection of namespace objects, symbols or strings; any function with namespace
+    not in this list will be removed.
+  * `:exclude` - collection of namespace objects, symbols or strings; any function with namespace
+    in this list will be removed.
+  * `:include-re`, `:exclude-re` - like `:include` and `:exclude`; can be either a single regex or
+    regex string, or can be a collection of such.
 
-(defn ns-filter
-  "Filters fully qualified function/macro names to only those given in include"
-  ; XXX Should switch the order here, since fq-fnames is really the collection of interest
-  [fq-fnames include]
-  (filter
-    (comp
-      (fn [ns]
-        (some #(.startsWith (str ns) %) (map str include)))
-      namespace)
-    fq-fnames))
+  If there are namespaces matching both an inclusion and an exclusion, those namepsaces will be
+  removed."
+  [dep-g & {:keys [include exclude include-re exclude-re]}]
+  (let [nss (map #(str (gattr/attr dep-g % :ns)) (g/nodes dep-g))
+        ; Make sure these either stay nil, or are seqs of strings (if a single ns, wrap in [])
+        [include exclude]
+        (map
+          (fn [ns]
+            (when ns
+              (if (coll? ns)
+                (map str ns)
+                [(str ns)])))
+          [include exclude])
+        ; Allow strings as regular expressions; also wrap in a collection if not already in one;
+        ; leave nil if already nil
+        [include-re exclude-re]
+        (map
+          (fn [re-or-res]
+            (when re-or-res
+              (if (coll? re-or-res)
+                (map re-pattern re-or-res)
+                [(re-pattern re-or-res)])))
+          [include-re exclude-re])
+        ; First check if we are doing inclusions, ow assume all nss are included
+        included (if (or include include-re)
+                   (-> (set (if (coll? include) include [include])) ; have to make sure it's the right set
+                       (into (mapcat
+                               (fn [re]
+                                 (filter (partial re-matches re) nss))
+                               include-re)))
+                   (set nss))
+        ; Now remove any needed
+        included (->> included
+                      (remove (set exclude)) ; if exclude nil, this doesn't do anythign
+                      (remove (fn [ns]
+                                (some
+                                  #(re-matches % ns)
+                                  exclude-re)))) ; similarly, from above, if exclude-re is nil, it becomes []
+        keep? (fn [ns] ((set included) (str ns)))]
+    (g-attribute-filter dep-g :ns keep?)))
 
-(defn deps-ns-remove
-  "Remove functions from dependencies which are in the given exclude namespaces"
-  [deps exclude]
-  (reduce
-    (fn [r [f sc]]
-      (assoc r f
-       (ns-remove
-         (map (partial fqns (symbol (namespace f))) (filter (comp identity namespace) sc))
-         exclude)))
-    {}
-    deps))
-
-(defn deps-ns-filter
-  "Remove functions from dependencies which are in the given exclude namespaces"
-  [deps include]
-  ; XXX Should check here that include is a collection and make it so if not
-  (reduce
-    (fn [r [f sc]]
-      (assoc r f
-       (ns-filter
-         (map (partial fqns (symbol (namespace f))) (filter (comp identity namespace) sc))
-         include)))
-    {}
-    deps))
-
-(defn all-fq
-  "Filter out symbols in exclude"
-  [deps]
-  (reduce
-    (fn [r [f sc]]
-      (assoc r f (map (partial fqns (symbol (namespace f))) sc)))
-    {}
-    deps))
-
-(defn default-exclude [] ["clojure" "java" "System"])
+(def ^:dynamic default-exclude
+  "Default namespaces to exclude from dependency graphs. Can be rebound."
+  ["clojure" "java" "System" ""])
 
 (defn project-dependencies
   "Returns a list of all functions found in all namespaces under the given path dir
