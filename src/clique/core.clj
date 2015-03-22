@@ -7,11 +7,14 @@
     [clojure.tools.namespace.find :as nsf :refer :all]
     [clojure.zip :as zip]
     [clojure.repl :as repl]
+    [plumbing.core :as pc :refer [?>]]
     [lacij.edit.graph :as leg]
     [lacij.view.graphview :as lgv]
     [lacij.layouts.core :as llc]
-    [lacij.layouts.layout :as lll]))
-
+    [lacij.layouts.layout :as lll]
+    [loom [graph :as g]
+          [attr :as gattr]
+          [io :as gio]]))
 
 
 ;; ## Base functions for building a dependency graph given a namespace"
@@ -55,7 +58,19 @@
            (let [fq-name (fqns ns sym)]
              (-> fq-name resolve meta (assoc :fq-name fq-name)))))))
 
+(defn apply-attrs
+  "Graph helper: Take a graph, a node, and apply all k/v pairs in attrs map as attributes of the node"
+  [g n attrs]
+  (reduce
+    (fn [g [k v]]
+      (gattr/add-attr g n k v))
+    g
+    attrs))
+
+; Should multimethod dispatch this
 (defn fn-dep-graph
+  "Given a function metadata map, return the dependency graph of all functions that
+  function depends on"
   [fn-meta]
   (let [fn-deps (fn-dependencies fn-meta)
         graph   (->> (map :fq-name fn-deps)
@@ -65,21 +80,33 @@
     (reduce
       (fn [g fmeta]
         ; And for each key/value pair in that map,
-        (reduce
-          (fn [g [k v]]
-            ; Add that attribuate to the node
-            (gattr/add-attr g (:fq-name fmeta) k v))
-          g
-          fmeta))
+        (apply-attrs g (:fq-name fmeta) fmeta))
       graph
       (conj fn-deps fn-meta))))
 
+(defn add-digraphs
+  "The `g/digraph` function when called on existing graphs fails to preserve attributes.
+  This function fixes that."
+  [& gs]
+  (let [g (reduce g/digraph gs)
+        node-attr-map (mapcat
+                        (fn [g]
+                          (map (fn [n] [n (gattr/attrs g n)]) (g/nodes g)))
+                        gs)]
+    (reduce
+      (fn [g [n attrs]]
+        (apply-attrs g n attrs))
+      g
+      node-attr-map)))
 
+; Also, should dispatch for this
 (defn ns-dependencies
+  "Given a namespace symbol, return a dependency graph for all functions that namespace's
+  functions depend on."
   [ns]
   (->> (ns-functions ns)
        (map fn-dep-graph)
-       (reduce g/digraph)))
+       (apply add-digraphs)))
 
 
 ;; ## Filtering functions
