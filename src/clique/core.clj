@@ -174,7 +174,6 @@
         keep? (fn [ns] ((set included) (str ns)))]
     (g-attribute-filter dep-g :ns keep?)))
 
-(def ^:dynamic default-exclude
 (defn project-dependencies
   "Returns a dependency graph of functions found in all namespaces within dir `src-dir`"
   [src-dir]
@@ -182,35 +181,13 @@
        (map ns-dependencies)
        (reduce add-digraphs)))
 
+(def ^:dynamic default-exclude-re
   "Default namespaces to exclude from dependency graphs. Can be rebound."
-  ["clojure" "java" "System" ""])
+  ["clojure\..*" "clojure.java" "System.*" ""])
 
-(defn nodes [deps] (set (mapcat cons (keys deps) (vals deps))))
 
-(defn edges [deps] (set (mapcat (fn [k v] (map vector (repeat k) v)) (keys deps) (vals deps))))
-
-(defn export-graphviz
-  ; All filtering should happen before this; poor separation of concerns
-  ([nodes edges name]
-    (println "Creating dependency graph " (str name ".dot") ", " (count nodes) " nodes "(count edges) " edges")
-    (spit (str name ".dot")
-      (apply str
-        (concat [(str "digraph " name " {")]
-          (map (fn [[s d]] (str \" s "\" -> \"" d "\";\n")) edges)
-          (map (fn [n] (str \" n "\" [label=\"" n "\"];\n")) nodes)
-          ["}"]))))
-  ([dir] (export-graphviz dir (default-exclude)))
-  ([dir exclude]
-    (println "Excluding " exclude)
-    ((fn [ds]
-      (export-graphviz (nodes ds) (edges ds) (str  "deps")))
-      (project-dependencies dir exclude))))
-
-;; This can now be used like this:
-;;     (-> (dependencies 'clojure.tools.cli)
-;;         (deps-ns-filter ['clojure.tools.cli\/])
-;;         ((fn [ds] (export-graphviz (nodes ds) (edges ds) "tools.cli"))))
-
+;; This is still borked at the moment:
+(comment
 (defn lacij-graph
   ([deps] (lacij-graph (-> (leg/graph :width 512 :height 512) (leg/add-default-node-attrs :width 25 :height 25 :shape :circle)) deps))
   ([g deps]
@@ -222,7 +199,7 @@
 
 (defn export-graph*
   ([ns]
-    (-> (lacij-graph (dependencies ns))
+    (-> (lacij-graph (ns-dependencies ns))
         (lll/layout :naive)
         (leg/build)
         (lgv/export (str "./" ns ".svg") :indent "yes")))
@@ -232,7 +209,50 @@
         lacij-graph
         (-> (leg/graph :width 1024 :height 1024)
             (leg/add-default-node-attrs :width 25 :height 25 :shape :circle))
-        (map dependencies (find-namespaces-in-dir (file path))))
+        (map ns-dependencies (find-namespaces-in-dir (file path))))
       (lll/layout :naive) (leg/build)
       (lgv/export output-name :indent "yes"))))
+  )
+
+;; Here's where we wrap things all together for the lein plugin
+
+(defn render-to-bytes
+  "Renders the graph g in the PNG format using GraphViz and returns PNG data
+  as a byte array.
+  Requires GraphViz's 'dot' (or a specified algorithm) to be installed in
+  the shell's path. Possible algorithms include :dot, :neato, :fdp, :sfdp,
+  :twopi, and :circo"
+  [g & {:keys [alg fmt] :or {alg "dot" fmt "png"} :as opts}]
+  (let [dot (apply gio/dot-str g (apply concat opts))
+        {png :out} (sh (name alg) (str "-T" fmt) :in dot :out-enc :bytes)]
+    png))
+
+(defn bytes-to-file
+  [data file]
+  ; Is this the correct writer?
+  (with-open [w (output-stream file)]
+    (.write w ^bytes data)))
+
+(defn lein-main
+  "Pass in the source dir, and an action which should be one of: `:dot`, `:view`, `:img`, `:lacij-svg`.
+  For the first three, there is an `:alg` option.
+  For `:img`, there is also a `:fmt` option available, which can take on \"png\", ... ."
+  ([src-dir] (lein-main src-dir :dot :out "deps.dot"))
+  ([src-dir action & {:keys [out include exclude] :as args}]
+   (let [out (or out (case action :dot "deps.dot" :img "deps.png" nil))
+         include (when include (clojure.string/split include ","))
+         exclude (if exclude (clojure.string/split include ",") default-exclude)
+         dep-graph (project-dependencies src-dir)
+         dep-graph (ns-restrict dep-graph :include include :exclude exclude)]
+     (println "Dependency graph has" (count (g/nodes dep-graph)) "nodes and" (count (g/edges dep-graph)) "edges.")
+     (case action
+       :pprint (clojure.pprint/pprint dep-graph)
+       :dot    (apply-kwargs gio/dot dep-graph out args)
+       :view   (apply-kwargs gio/view dep-graph args)
+       ;:img    (-> (apply-kwargs render-to-bytes dep-graph args)
+       :img    (let [bs (apply-kwargs render-to-bytes dep-graph args)]
+                 (bytes-to-file bs out))
+       :lacij-svg
+               (println "Not yet implemented")))))
+
 
