@@ -1,4 +1,4 @@
-(defproject lein-clique "0.1.2"
+(defproject lein-clique "1.0.0-SNAPSHOT"
   :description "Make dependency graphs of Clojure functions"
   :url "https://github.com/Hendekagon/lein-clique"
   :license {:name "Eclipse Public License"

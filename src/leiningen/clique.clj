@@ -14,7 +14,7 @@
   [project & args]
   (println "Generating dependency graph for " (first (:source-paths project)))
   (lein/eval-in-project
-    (update-in project [:dependencies] (partial apply conj) ['[lein-clique "0.1.2"] '[org.clojure/clojure "1.5.1"]])
+    (update-in project [:dependencies] conj '[lein-clique "1.0.0-SNAPSHOT"])
     (if (not-empty args) (q (first (:source-paths project)) (apply read-string args)) (q (first (:source-paths project))))
     `(require '[clique.core])
   )
