@@ -7,6 +7,7 @@
     [clojure.tools.namespace.find :as nsf :refer :all]
     [clojure.zip :as zip]
     [clojure.repl :as repl]
+    [clojure.java.shell :refer [sh]]
     [plumbing.core :as pc :refer [?>]]
     [lacij.edit.graph :as leg]
     [lacij.view.graphview :as lgv]
@@ -174,20 +175,15 @@
     (g-attribute-filter dep-g :ns keep?)))
 
 (def ^:dynamic default-exclude
+(defn project-dependencies
+  "Returns a dependency graph of functions found in all namespaces within dir `src-dir`"
+  [src-dir]
+  (->> (find-namespaces-in-dir (file src-dir))
+       (map ns-dependencies)
+       (reduce add-digraphs)))
+
   "Default namespaces to exclude from dependency graphs. Can be rebound."
   ["clojure" "java" "System" ""])
-
-(defn project-dependencies
-  "Returns a list of all functions found in all namespaces under the given path dir
-  and their dependent functions"
-  [dir exclude]
-  (deps-ns-remove (mapcat dependencies (find-namespaces-in-dir (file dir))) exclude))
-
-(defn all-deps
-  "Returns a list of all functions found in all namespaces under the given path dir
-  and their dependent functions"
-  [dir]
-  (all-fq (mapcat dependencies (find-namespaces-in-dir (file dir)))))
 
 (defn nodes [deps] (set (mapcat cons (keys deps) (vals deps))))
 
