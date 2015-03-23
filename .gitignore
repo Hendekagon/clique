@@ -14,4 +14,6 @@ pom.xml
 .lein-deps-sum
 .lein-failures
 .lein-plugins
-.DS_Store
+.DS_Store.lein-repl-history
+.nrepl-port
+.lein-repl-history
