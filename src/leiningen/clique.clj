@@ -4,10 +4,6 @@
     [leiningen.core.eval :as lein]
     [leiningen.core.main :as lmain]))
 
-(defmacro q
-  ([p e] ``(apply clique.core/lein-main ~~p ~~e))
-  ([p] ``(clique.core/lein-main ~~p)))
-
 (defn symbol-or-string
   [s]
   (if (= (first s) \:)

@@ -5,14 +5,10 @@
     [clojure.stacktrace :as st :refer :all]
     [clojure.java.io :as io :refer :all]
     [clojure.tools.namespace.find :as nsf :refer :all]
-    [clojure.zip :as zip]
     [clojure.repl :as repl]
     [clojure.java.shell :refer [sh]]
+    [clojure.pprint :refer [pprint]]
     [plumbing.core :as pc :refer [?>]]
-    [lacij.edit.graph :as leg]
-    [lacij.view.graphview :as lgv]
-    [lacij.layouts.core :as llc]
-    [lacij.layouts.layout :as lll]
     [loom [graph :as g]
           [attr :as gattr]
           [io :as gio]]))
@@ -183,36 +179,8 @@
 
 (def ^:dynamic default-exclude-re
   "Default namespaces to exclude from dependency graphs. Can be rebound."
-  ["clojure\..*" "clojure.java" "System.*" ""])
+  ["clojure\\..*" "clojure.java" "System.*" ""])
 
-
-;; This is still borked at the moment:
-(comment
-(defn lacij-graph
-  ([deps] (lacij-graph (-> (leg/graph :width 512 :height 512) (leg/add-default-node-attrs :width 25 :height 25 :shape :circle)) deps))
-  ([g deps]
-    (reduce
-      (fn [g [s d]]
-        (leg/add-edge g (keyword (str (name s) "-" (name d))) s d))
-      (reduce (fn [g n] (leg/add-node g n (name n))) g (nodes deps))
-      (edges deps))))
-
-(defn export-graph*
-  ([ns]
-    (-> (lacij-graph (ns-dependencies ns))
-        (lll/layout :naive)
-        (leg/build)
-        (lgv/export (str "./" ns ".svg") :indent "yes")))
-  ([path output-name]
-    (->
-      (reduce
-        lacij-graph
-        (-> (leg/graph :width 1024 :height 1024)
-            (leg/add-default-node-attrs :width 25 :height 25 :shape :circle))
-        (map ns-dependencies (find-namespaces-in-dir (file path))))
-      (lll/layout :naive) (leg/build)
-      (lgv/export output-name :indent "yes"))))
-  )
 
 ;; Here's where we wrap things all together for the lein plugin
 
@@ -234,25 +202,23 @@
     (.write w ^bytes data)))
 
 (defn lein-main
-  "Pass in the source dir, and an action which should be one of: `:dot`, `:view`, `:img`, `:lacij-svg`.
+  "Pass in the source dir, and an action which should be one of: `:dot`, `:view`, `:img`.
   For the first three, there is an `:alg` option.
   For `:img`, there is also a `:fmt` option available, which can take on \"png\", ... ."
   ([src-dir] (lein-main src-dir :dot :out "deps.dot"))
   ([src-dir action & {:keys [out include exclude] :as args}]
    (let [out (or out (case action :dot "deps.dot" :img "deps.png" nil))
          include (when include (clojure.string/split include ","))
-         exclude (if exclude (clojure.string/split include ",") default-exclude)
+         exclude (if exclude (clojure.string/split include ",") default-exclude-re)
          dep-graph (project-dependencies src-dir)
          dep-graph (ns-restrict dep-graph :include include :exclude exclude)]
      (println "Dependency graph has" (count (g/nodes dep-graph)) "nodes and" (count (g/edges dep-graph)) "edges.")
      (case action
-       :pprint (clojure.pprint/pprint dep-graph)
+       :pprint (pprint dep-graph)
        :dot    (apply-kwargs gio/dot dep-graph out args)
        :view   (apply-kwargs gio/view dep-graph args)
        ;:img    (-> (apply-kwargs render-to-bytes dep-graph args)
        :img    (let [bs (apply-kwargs render-to-bytes dep-graph args)]
-                 (bytes-to-file bs out))
-       :lacij-svg
-               (println "Not yet implemented")))))
+                 (bytes-to-file bs out))))))
 
 
