@@ -109,6 +109,14 @@
        (map fn-dep-graph)
        (apply add-digraphs)))
 
+
+(defn project-dependencies
+  "Returns a dependency graph of functions found in all namespaces within dir `src-dir`"
+  [src-dir]
+  (->> (find-namespaces-in-dir (file src-dir))
+       (map ns-dependencies)
+       (reduce add-digraphs)))
+
 ;; ## Filtering functions
 ;;
 ;; Here we have functions for filtering our dependency graphs by namespace.
@@ -174,12 +182,6 @@
         keep? (fn [ns] ((set included) (str ns)))]
     (g-attribute-filter dep-g :ns keep?)))
 
-(defn project-dependencies
-  "Returns a dependency graph of functions found in all namespaces within dir `src-dir`"
-  [src-dir]
-  (->> (find-namespaces-in-dir (file src-dir))
-       (map ns-dependencies)
-       (reduce add-digraphs)))
 
 (defn restrict-to-source-nss
   [dep-graph]
