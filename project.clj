@@ -10,5 +10,4 @@
                  [aysylu/loom "0.5.0"]
                  [prismatic/plumbing "0.4.1"]
                  [org.clojure/tools.namespace "0.2.10"]]
-  :profiles {:dev {:dependencies [[org.clojure/math.numeric-tower "0.0.2"]
-                                  [clj-ns-browser "1.3.1"]]}})
+)

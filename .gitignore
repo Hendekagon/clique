@@ -1,0 +1,12 @@
+/target
+/classes
+pom.xml
+pom.xml.asc
+/.hg
+*.jar
+*.class
+*.iml
+/.lein-*
+/.nrepl-port
+/.idea
+.DS_Store
