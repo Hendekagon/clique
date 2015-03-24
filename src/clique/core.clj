@@ -181,6 +181,13 @@
        (map ns-dependencies)
        (reduce add-digraphs)))
 
+(defn restrict-to-source-nss
+  [dep-graph]
+  (let [source-nodes (map first (g/edges dep-graph))
+        source-nss   (set (map #(gattr/attr dep-graph % :ns) source-nodes))]
+    (ns-restrict dep-graph :include source-nss)))
+
+
 (def ^:dynamic default-exclude-re
   "Default namespaces to exclude from dependency graphs. Can be rebound."
   ["clojure\..*" "clojure.java" "System.*" ""])
