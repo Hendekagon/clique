@@ -9,6 +9,8 @@
           [io :as lio]]
     [clojure.java.io :as io]))
 
+(def qwe '[x y z])
+
 (defn get-namespace-forms [file]
   (read-string (str "[" (slurp file) "]")))
 
@@ -16,12 +18,13 @@
   ([file]
     (get-ns-defs file (get-namespace-forms file)))
   ([file [[_ ns-name :as ns-dec] & forms :as nsf]]
-   (require ns-name)
-   (sequence
-     (comp
-       (filter (comp #{'defn 'defmacro 'def} first))
-       (map (fn [form] (with-meta form {:ns-name ns-name}))))
-     forms)))
+   (if (try (require ns-name) (catch Exception e nil))
+     (sequence
+      (comp
+        (filter (comp #{'defn 'defmacro 'def} first))
+        (map (fn [form] (with-meta form {:ns-name ns-name}))))
+      forms)
+     '())))
 
 (defn fqsym
   "Returns the fully qualified symbol s in namespace ns"
