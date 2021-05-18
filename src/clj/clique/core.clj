@@ -9,8 +9,6 @@
           [io :as lio]]
     [clojure.java.io :as io]))
 
-(def qwe '[x y z])
-
 (defn get-namespace-forms [file]
   (read-string (str "[" (slurp file) "]")))
 
