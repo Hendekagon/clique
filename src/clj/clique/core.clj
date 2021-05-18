@@ -24,7 +24,7 @@
      forms)))
 
 (defn fqsym
-  "Returns the fully qualified symbol in namespace ns"
+  "Returns the fully qualified symbol s in namespace ns"
   ([ns s]
     (fqsym (meta (ns-resolve ns s))))
   ([{ans :ns sym :name :as m}]
