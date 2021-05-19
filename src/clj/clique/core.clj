@@ -40,13 +40,13 @@
    defined by a-def"
   [{:keys [ignore] :or {ignore #{}}} a-def]
   (let [{ns-name :ns-name :as m} (meta a-def)
-        syms (filter symbol? (tree-seq list? seq a-def))
+        syms (filter symbol? (tree-seq seqable? seq a-def))
         [deff fq-name & that] (remove nil? (map (partial fqsym ns-name) syms))
        ]
      (assoc m
-       :depends-on (sequence (comp (remove (comp ignore namespace)) (remove (into #{} syms))) that)
+       :depends-on (sequence (comp (filter (comp seq :arglists meta)) (remove (comp ignore namespace)) (remove (into #{} syms))) that)
        :fq-name fq-name
-       :kind (if (= "defn" (name deff)) :function :macro)
+       :kind (if (= "defmacro" (name deff)) :macro :function)
        )))
 
 (defn as-graph
@@ -61,7 +61,7 @@
   "Returns a dependency graph of functions
    found in all namespaces from path"
   ([path]
-    (project-dependencies {:ignore #{"clojure.core"}} path))
+    (project-dependencies {:ignore #{"clojure.core" "clojure.stacktrace"}} path))
   ([{:keys [ignore] :as params} path]
     (->>
        (io/file path)
@@ -78,7 +78,7 @@
 
 
 (comment
-  
+
 
   (view-deps ".")
 
