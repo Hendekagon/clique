@@ -10,13 +10,15 @@
     [clojure.java.io :as io]))
 
 (defn get-namespace-forms [file]
-  (read-string (str "[" (slurp file) "]")))
+  (try
+    (read-string (str "[" (slurp file) "]"))
+  (catch Exception e '())))
 
 (defn get-ns-defs
   ([file]
     (get-ns-defs file (get-namespace-forms file)))
   ([file [[_ ns-name :as ns-dec] & forms :as nsf]]
-   (if (try (require ns-name) (catch Exception e nil))
+   (if (try (or (ns-map ns-name) (do (require ns-name) true)) (catch Exception e false))
      (sequence
       (comp
         (filter (comp #{'defn 'defmacro 'def} first))
@@ -53,7 +55,7 @@
   (apply lg/digraph
     (mapcat
       (fn [{:keys [depends-on fq-name ns-name]}]
-        (cons [ns-name fq-name] (map (fn [d] [fq-name d]) depends-on))) deps)))
+        (map (fn [d] [fq-name d]) depends-on)) deps)))
 
 (defn project-dependencies
   "Returns a dependency graph of functions
@@ -76,7 +78,7 @@
 
 
 (comment
-
+  
 
   (view-deps ".")
 
