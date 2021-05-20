@@ -5,12 +5,17 @@ Some code for generating function dependency graphs
 ## Usage
 
 
+`Hendekagon/clique {:git/url "https://github.com/Hendekagon/clique.git" :sha "11ba7c36ab7edfbef9341d697846b56dcb6b1c4d"}`
 
+in the `:extra-deps` of one of your `~/.clojure/deps.edn`'s aliases
 
-Clique goes through your source code to find which functions depend on which other functions.
-If you analyze the dependency graph, you can find for example which functions are most used
-by other functions (in-degree - in the Clojure core namespace these are: concat, seq and list),
-or which functions are most dependent on other functions.
+Clique goes through your source code to find which functions depend on which other functions
+
+```
+(require '[clique.core :as cc])
+
+(cc/view-deps ".")
+```
 
 
 
