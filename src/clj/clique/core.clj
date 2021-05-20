@@ -18,7 +18,7 @@
   ([file]
     (get-ns-defs file (get-namespace-forms file)))
   ([file [[_ ns-name :as ns-dec] & forms :as nsf]]
-   (if (try (or (ns-map ns-name) (do (require ns-name) true)) (catch Exception e false))
+   (if (try (do (require ns-name) true) (catch Exception e false))
      (sequence
       (comp
         (filter (comp #{'defn 'defmacro 'def} first))
@@ -69,18 +69,25 @@
        (mapcat get-ns-defs)
        (map (partial get-deps params)))))
 
-(defn view-deps [path]
-  (-> path
-    project-dependencies
-    as-graph
-    lio/view))
+(defn view-deps
+  ([]
+    (view-deps "."))
+  ([path]
+    (-> path
+       project-dependencies
+       as-graph
+       lio/view)))
 
-
+(defn run [& [path]]
+  (do
+    (view-deps (or path "."))
+    (Thread/sleep 1000)
+    (System/exit 0)))
 
 (comment
 
 
-  (view-deps ".")
+  (view-deps)
 
 
 )
