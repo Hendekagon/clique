@@ -5,7 +5,7 @@ Some code for generating function dependency graphs
 ## Usage
 
 
-`Hendekagon/clique {:git/url "https://github.com/Hendekagon/clique.git" :sha "8b6a331f2e7345091f1e2f5ff670e46c7d61add8"}`
+`Hendekagon/clique {:git/url "https://github.com/Hendekagon/clique.git" :sha "05ffaaf7908118834f8936918979158f56cfc7b4"}`
 
 in the `:extra-deps` of one of your `~/.clojure/deps.edn`'s aliases
 
