@@ -53,8 +53,7 @@
      (assoc m
        :depends-on (sequence (comp (filter (comp seq :arglists meta)) (remove (comp ignore namespace)) (remove (into #{} syms))) that)
        :fq-name fq-name
-       :kind (if (= "defmacro" (name deff)) :macro :function)
-       )))
+       :kind (if (= "defmacro" (name deff)) :macro :function))))
 
 (defn as-graph
   "Return the given dependencies as a graph"
@@ -92,7 +91,7 @@
     (-> path
        ((partial project-dependencies params))
        as-graph
-       (lio/view view-opts))))
+       ((partial apply lio/view) (mapcat identity view-opts)))))
 
 (defn run [{path :path :as params}]
   (do
