@@ -4,24 +4,31 @@
   "
   (:require
     [clojure.tools.namespace.find :as nsf]
+    [clojure.java.io :as io]
     [loom [graph :as lg]
           [attr :as la]
-          [io :as lio]]
-    [clojure.java.io :as io]))
+          [io :as lio]]))
 
-(defn get-namespace-forms [file]
-  (try
-    (read-string (str "[" (slurp file) "]"))
-  (catch Exception e '())))
+(defn get-namespace-forms [filename]
+  (let [read-params {:eof nil}]
+    (with-open [r (java.io.PushbackReader. (io/reader filename))]
+      (binding [*read-eval* false]
+        (loop [forms [] form (read read-params r)]
+          (if form
+            (recur (conj forms form) (read read-params r))
+            forms))))))
 
 (defn get-ns-defs
-  ([file]
-    (get-ns-defs file (get-namespace-forms file)))
-  ([file [[_ ns-name :as ns-dec] & forms :as nsf]]
+  ([filename]
+    (get-ns-defs {} filename))
+  ([params file]
+    (get-ns-defs params file (get-namespace-forms file)))
+  ([{include-defs :include-defs :or {include-defs #{'defn 'defmacro}}}
+     file [[_ ns-name :as ns-dec] & forms :as nsf]]
    (if (try (do (require ns-name) true) (catch Exception e false))
      (sequence
       (comp
-        (filter (comp #{'defn 'defmacro 'def} first))
+        (filter (comp include-defs first))
         (map (fn [form] (with-meta form {:ns-name ns-name}))))
       forms)
      '())))
@@ -61,33 +68,40 @@
   "Returns a dependency graph of functions
    found in all namespaces from path"
   ([path]
-    (project-dependencies {:ignore #{"clojure.core" "clojure.stacktrace"}} path))
+    (project-dependencies
+      {:ignore #{"clojure.core"}} path))
   ([{:keys [ignore] :as params} path]
     (->>
        (io/file path)
        (nsf/find-sources-in-dir)
-       (mapcat get-ns-defs)
+       (mapcat (partial get-ns-defs params))
        (map (partial get-deps params)))))
+
+(def default-params
+  {:graphviz
+     {:fmt :pdf :alg :dot
+      :graph {:ratio 0.618}
+      :node  {:shape :record :fontsize 10}}
+    :ignore #{"clojure.core"}
+    :include-defs #{'defn 'defmacro}})
 
 (defn view-deps
   ([]
-    (view-deps "."))
-  ([path]
+    (view-deps default-params "."))
+  ([{view-opts :graphviz :as params} path]
     (-> path
-       project-dependencies
+       ((partial project-dependencies params))
        as-graph
-       lio/view)))
+       (lio/view view-opts))))
 
-(defn run [& [path]]
+(defn run [{path :path :as params}]
   (do
-    (view-deps (or path "."))
+    (view-deps (merge default-params params) (str (or path ".")))
     (Thread/sleep 1000)
     (System/exit 0)))
 
 (comment
 
-
   (view-deps)
-
 
 )

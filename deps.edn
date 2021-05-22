@@ -1,5 +1,5 @@
 {:paths ["src/clj" "src/cljc"]
  :deps
- {org.clojure/clojure {:mvn/version "1.10.3"}
+ {org.clojure/clojure {:mvn/version "1.11.0-alpha1"}
   aysylu/loom {:mvn/version "1.0.2"}
   org.clojure/tools.namespace {:mvn/version "1.1.0"}}}

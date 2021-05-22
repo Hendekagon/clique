@@ -9,18 +9,19 @@ Some code for generating function dependency graphs
 
 in the `:extra-deps` of one of your `~/.clojure/deps.edn`'s aliases
 
-Clique goes through your source code to find which functions depend on which other functions
+from your project root:
 
-`clj -A:clique-alias -X clique.core/run`
+`clj -A:my-alias-containing-clique -X clique.core/run`
 
 or
 
 ```
-(require '[clique.core :as cc])
+(require '[clique.core :as c])
 
-(cc/view-deps ".")
+(c/view-deps)
 ```
 
+See the source for more options
 
 
 
