@@ -4,6 +4,7 @@ Some code for generating function dependency graphs
 
 ## Usage
 
+(this is currently being rewritten so expect issues)
 
 `Hendekagon/clique {:git/url "https://github.com/Hendekagon/clique.git" :sha "29859d561e27d4e6b9444798f385a7840a259a52"}`
 
